@@ -1,0 +1,123 @@
+-- Função principal para configurar a interface da UI library e integrar o ESP script
+local ESPColor = Color3.fromRGB(255, 255, 255) -- Cor padrão do ESP
+local ESPEnabled = false -- Estado inicial do ESP
+
+-- Função para ativar/desativar o ESP
+local function toggleESP(State)
+    ESPEnabled = State
+    FOVCircle.Visible = State
+    updateHighlights()
+end
+
+-- Função para alterar a cor do ESP
+local function changeESPColor(Color)
+    ESPColor = Color
+    -- Atualiza as cores de destaque dos jogadores
+    updateHighlights()
+end
+
+-- Função para alterar o raio do FOV Circle
+local function changeFOVRadius(Radius)
+    FOVCircle.Radius = Radius
+end
+
+-- Interface da UI
+local ESPToggle = Divider:Toggle{
+   Name = "Toggle ESP",
+   Description = "Ativa/Desativa o ESP.",
+   Callback = function(State)
+       toggleESP(State)
+   end
+}
+
+local ESPColorPicker = Divider:ColorPicker{
+   Name = "ESP Color",
+   Default = ESPColor,
+   Callback = function(Color)
+       changeESPColor(Color)
+   end
+}
+
+local FOVSlider = Divider:Slider{
+   Name = "FOV Radius",
+   Min = 50,
+   Max = 300,
+   Default = 100,
+   Callback = function(Value)
+       changeFOVRadius(Value)
+   end
+}
+
+local Quit = QuitDivider:Button{
+   Name = "Fechar UI",
+   Callback = function()
+       UI:Quit{
+           Message = "UI Fechada",
+           Length = 1
+       }
+   end
+}
+
+-- Integração com o script original para ESP e Highlight
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Radius = 100
+FOVCircle.Thickness = 2
+FOVCircle.Color = ESPColor
+FOVCircle.Position = Vector2.new(Workspace.CurrentCamera.ViewportSize.X / 2, Workspace.CurrentCamera.ViewportSize.Y / 2)
+
+-- Funções de adicionar/remover destaque dos personagens
+local function addHighlightToCharacter(player, character)
+    if player == LocalPlayer then return end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart and not humanoidRootPart:FindFirstChild("Highlight") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Highlight"
+        highlight.Adornee = character
+        highlight.Parent = humanoidRootPart
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        if player.Team == LocalPlayer.Team then
+            highlight.FillColor = Color3.fromRGB(0, 0, 255)
+        else
+            highlight.FillColor = ESPColor
+        end
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.5
+    end
+end
+
+local function removeHighlightFromCharacter(character)
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart then
+        local highlight = humanoidRootPart:FindFirstChild("Highlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+end
+
+local function updateHighlights()
+    for _, player in pairs(Players:GetPlayers()) do
+        local character = player.Character
+        if character then
+            if ESPEnabled then
+                addHighlightToCharacter(player, character)
+            else
+                removeHighlightFromCharacter(character)
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if ESPEnabled then
+        updateHighlights()
+    end
+end)
+
